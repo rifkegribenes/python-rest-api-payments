@@ -32,7 +32,7 @@ class OrderModel(db.Model):
         """
         Generates a simple string representing the order, format "5x chair, 2x table
         """
-        item_counts = [f"{i.quantity}x {i.item.name" for i in self.items]
+        item_counts = [f"{i.quantity}x {i.item.name}" for i in self.items]
         return ",".join(item_counts)
 
     @property
@@ -51,7 +51,7 @@ class OrderModel(db.Model):
         stripe.api_key = os.getenv("STRIPE_API_KEY")
 
         return stripe.Charge.create(
-            amout=self.amount,
+            amount=self.amount,
             currency=CURRENCY,
             description=self.description,
             source=token
