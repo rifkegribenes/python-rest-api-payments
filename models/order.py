@@ -1,6 +1,10 @@
+import os
+import stripe
+
 from db import db
 from typing import List
-import os
+
+CURRENCY = "usd"
 
 
 class ItemsInOrder(db.Model):
@@ -31,11 +35,17 @@ class OrderModel(db.Model):
     def find_by_id(cls, _id: int) -> "OrderModel":
         return cls.query.filter_by(id=_id).first()
 
+    def charge_with_stripe(self, token: str) -> stripe.Charge:
+        stripe.api_key = os.getenv("STRIPE_API_KEY")
+
+        return stripe.Charge.create(
+            amout=self.amount,
+            currency=CURRENCY,
+            description=self.description,
+            source=token
+        )
+
     def set_status(self, new_status: str) -> None:
-        """
-        Sets the new status for the order and saves to the database—so that an order is never not committed to disk.
-        :param new_status: the new status for this order to be saved.
-        """
         self.status = new_status
         self.save_to_db()
 
