@@ -13,7 +13,7 @@ class Order(Resource):
     def post(cls):
         """
         Expect a token and a list of item ids from the request body.
-        Construct an order and talk to the Strip API to make a charge.
+        Construct an order and talk to the Stripe API to make a charge.
         """
         data = request.get_json()  # token + list of item ids  [1, 2, 3, 5, 5, 5]
         items = []
@@ -28,6 +28,6 @@ class Order(Resource):
             items.append(ItemsInOrder(item_id=_id, quantity=count))
 
         order = OrderModel(items=items, status="pending")
-        order.save_to_db()  
+        order.save_to_db()
 
         order.set_status("something")
