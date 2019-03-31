@@ -2,6 +2,7 @@ from collections import Counter
 from flask import request
 from flask_restful import Resource
 
+from stripe import error
 from libs.strings import gettext
 from models.item import ItemModel
 from models.order import OrderModel, ItemsInOrder
@@ -19,7 +20,7 @@ class Order(Resource):
     def post(cls):
         """
         Expect a token and a list of item ids from the request body.
-        Construct an order and talk to the Stripe API to make a charge.
+        Construct an order and talk to the Strip API to make a charge.
         """
         data = request.get_json()  # token + list of item ids  [1, 2, 3, 5, 5, 5]
         items = []
@@ -34,9 +35,35 @@ class Order(Resource):
             items.append(ItemsInOrder(item_id=_id, quantity=count))
 
         order = OrderModel(items=items, status="pending")
-        order.save_to_db()
+        order.save_to_db()  # this does not submit to Stripe
 
-        order.set_status("failed")
-        order.charge_with_stripe(data["token"])
-        order.set_status("complete")
-        return order_schema.dump(order)
+        try:
+            order.set_status("failed")  # assume the order would fail until it's completed
+            order.charge_with_stripe(data["token"])
+            order.set_status("complete")  # charge succeeded
+            return order_schema.dump(order), 200
+
+        except error.CardError as e:
+            # Since it's a decline, stripe.error.CardError will be caught
+            return e.json_body, e.http_status
+        except error.RateLimitError as e:
+            # Too many requests made to the API too quickly
+            return e.json_body, e.http_status
+        except error.InvalidRequestError as e:
+            # Invalid parameters were supplied to Stripe's API
+            return e.json_body, e.http_status
+        except error.AuthenticationError as e:
+            # Authentication with Stripe's API failed
+            # (maybe you changed API keys recently)
+            return e.json_body, e.http_status
+        except error.APIConnectionError as e:
+            # Network communication with Stripe failed
+            return e.json_body, e.http_status
+        except error.StripeError as e:
+            # Display a very generic error to the user, and maybe send
+            # yourself an email
+            return e.json_body, e.http_status
+        except Exception as e:
+            # Something else happened, completely unrelated to Stripe
+            print(e)
+            return {"message": gettext("order_error")}, 500
