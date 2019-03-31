@@ -35,5 +35,5 @@ class Order(Resource):
 
         order.set_status("failed")
         #order.charge_with_stripe(data["token"])
-        order.set_stauts("complete")
+        order.set_status("complete")
         return order_schema.dump(order)
